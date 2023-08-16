@@ -1,9 +1,13 @@
 import { recordHook, FlatfileRecord } from "@flatfile/plugin-record-hook";
 import { FlatfileEvent, Client } from "@flatfile/listener";
 import { contactSheet } from "./sheets/contactSheet";
+import { ccSheet } from "./sheets/costCenter";
 import api from "@flatfile/api";
+import { automap } from "@flatfile/plugin-automap";
 import axios from "axios";
 import { format, isDate, isFuture, parseISO } from "date-fns";
+import { xlsxExtractorPlugin } from '@flatfile/plugin-xlsx-extractor'
+import { isContext } from "vm";
 
 export default function flatfileEventListener(listener: Client) {
   listener.on("**", ({ topic }: FlatfileEvent) => {
@@ -25,7 +29,7 @@ export default function flatfileEventListener(listener: Client) {
           environmentId,
           name: "All Data",
           labels: ["primary"],
-          sheets: [contactSheet],
+          sheets: [contactSheet, ccSheet],
           actions: [
             {
               operation: "submitAction",
@@ -61,8 +65,28 @@ export default function flatfileEventListener(listener: Client) {
     );
   });
 
+  // listener.use(
+  //   automap({
+  //     debug: false,
+  //     accuracy: "confident",
+  //     defaultTargetSheet: "Contacts",
+  //     matchFilename: /^test.csv$/g,
+  //     onFailure: (event: FlatfileEvent) => {
+  //       // send an SMS, an email, post to an endpoint, etc.
+  //       console.error(
+  //         `Please visit https://spaces.flatfile.com/space/${event.context.spaceId}/files?mode=import to manually import file.`,
+  //       );
+  //     },
+  //   }),
+  // );
+
+  //When a record is created or edited
   listener.use(
-    recordHook("contacts", (record: FlatfileRecord) => {
+    recordHook("contacts", (record: FlatfileRecord, event: FlatfileEvent) => {
+
+      record.setMetadata({
+        lastEgress: Date.now()
+      });
 
       if (record.get('email')) {
         const email = record.get("email") as string;
@@ -129,10 +153,27 @@ export default function flatfileEventListener(listener: Client) {
         }
       }
 
+      // if (record.get('ccName')) {
+      //   const links = record.getLinks('ccName')
+      //   const lookupValue = links?.[0]?.['code']
+      //   const targetField = 'ccId'
+      //   record.set(targetField, lookupValue)
+      //   record.addInfo(targetField, 'From linked file')
+      // }
+
+      if (record.get('ccId')) {
+        const links = record.getLinks('ccId')
+        const lookupValue = links?.[0]?.['name']
+        const targetField = 'ccName'
+        record.set(targetField, lookupValue)
+        record.addInfo(targetField, 'From linked file')
+      }
+
       return record;
     })
   );
 
+  //when the user clicks submit in review
   listener.filter({ job: "workbook:submitAction" }, (configure) => {
     configure.on(
       "job:ready",
@@ -150,11 +191,11 @@ export default function flatfileEventListener(listener: Client) {
             progress: 10,
           });
 
-          console.log(JSON.stringify(records, null, 2));
+          // console.log(JSON.stringify(records, null, 2));
 
           const webhookReceiver =
             process.env.WEBHOOK_SITE_URL ||
-            "https://webhook.site/87992418-3f4c-4cf2-8dae-14e256a85678";
+            "https://webhook.site/ac5c7ed6-6f36-48b2-a478-82a60917b45d";
 
           const response = await axios.post(
             webhookReceiver,
@@ -194,4 +235,6 @@ export default function flatfileEventListener(listener: Client) {
       }
     );
   });
+
+  listener.use(xlsxExtractorPlugin({ rawNumbers: true }))
 }

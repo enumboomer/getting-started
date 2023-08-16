@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 import { Flatfile } from "@flatfile/api";
 
 export const contactSheet: Flatfile.SheetConfig = {
@@ -68,6 +68,42 @@ export const contactSheet: Flatfile.SheetConfig = {
         ]
       },
       constraints: [{ "type": "required" }]
+    },
+    // {
+    //   key: "ccId",
+    //   label: "CC ID",
+    //   description: "Cost center code that matches related record in cost center sheet.",
+    //   type: "string",
+    // },
+    {
+      key: "ccId",
+      label: "CC ID",
+      description: "Cost center code pulled from reference file",
+      type: "reference",
+      // readonly: true,
+      config: {
+        ref: "costcenters",
+        key: "code",
+        relationship: "has-one"
+      }
+    },
+    // {
+    //   key: "ccName",
+    //   label: "CC Name",
+    //   description: "Cost center name pulled from reference file",
+    //   type: "reference",
+    //   // readonly: true,
+    //   config: {
+    //     ref: "costcenters",
+    //     key: "name",
+    //     relationship: "has-one"
+    //   }
+    // },
+    {
+      key: "ccName",
+      label: "CC Name",
+      description: "Cost center name that matches related record in cost center sheet.",
+      type: "string",
     },
   ]
 };
